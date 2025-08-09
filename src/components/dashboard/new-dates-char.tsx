@@ -1,25 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "../ui/chart";
 import { Card, CardHeader, CardDescription, CardTitle, CardContent } from "../ui/card";
 import { BarChart, XAxis, CartesianGrid, Bar } from "recharts";
 
-export default function NewDates() {
+export default function NewDatesChar() {
   const data = useMemo(
     () => [
-      { date: "Enero", patients: 5 },
-      { date: "Febrero", patients: 10 },
-      { date: "Marzo", patients: 15 },
-      { date: "Abril", patients: 20 },
-      { date: "Mayo", patients: 25 },
-      { date: "Junio", patients: 30 },
-      { date: "Julio", patients: 35 },
-      { date: "Agosto", patients: 40 },
-      { date: "Septiembre", patients: 45 },
-      { date: "Octubre", patients: 50 },
-      { date: "Noviembre", patients: 55 },
-      { date: "Diciembre", patients: 60 },
+      { date: "Agosto", patients: 5 },
+      { date: "Septiembre", patients: 10 },
+      { date: "Octubre", patients: 15 },
     ],
     []
   );
@@ -29,22 +20,11 @@ export default function NewDates() {
     date: { label: "Fecha", color: "hsl(var(--chart-2))" },
   } satisfies ChartConfig;
 
-  const [activeStat, setActiveStat] =
-    useState<keyof typeof chartConfig>("patients");
-
-  const totals = useMemo(
-    () => ({
-      patients: data.reduce((acc, curr) => acc + curr.patients, 0),
-      date: data.length,
-    }),
-    [data]
-  );
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Proximas consultas por mes</CardTitle>
-        <CardDescription>En esta sección podrás ver el número de proximas consultas por mes.</CardDescription>
+        <CardTitle>Proximas consultas en 3 meses</CardTitle>
+        <CardDescription>En esta sección podrás ver el número de proximas consultas en los proximos 3 meses.</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="aspect-auto h-[130px] w-full">
