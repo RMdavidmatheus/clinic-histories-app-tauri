@@ -13,7 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className="light">{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

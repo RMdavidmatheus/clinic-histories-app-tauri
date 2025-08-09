@@ -9,7 +9,6 @@ import { PieChart, Pie, Cell, Legend } from "recharts";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "../ui/card";
