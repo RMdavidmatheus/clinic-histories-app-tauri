@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { IconDashboard } from "@tabler/icons-react"
+import { IconHome } from "@tabler/icons-react";
 
 import {
   SidebarGroup,
@@ -9,28 +9,39 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 import { useEntityStore } from "@/lib/application-utils";
+import { cn } from "@/lib/utils";
 
 export function NavApplication() {
-
+  const entity = useEntityStore((s) => s.entity);
   const setEntity = useEntityStore((state) => state.setEntity);
+  const isActive = "Inicio" === entity;
 
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-        </SidebarMenu>
+        <SidebarMenu></SidebarMenu>
         <SidebarMenu>
           <SidebarGroupLabel>Aplicación</SidebarGroupLabel>
-            <SidebarMenuItem key="Home">
-              <SidebarMenuButton tooltip="Home" className="hover:bg-blue-500 hover:cursor-pointer hover:text-white focus:bg-blue-500/90 focus:text-white transition-all duration-300 hover:scale-105" onClick={() => setEntity("Inicio")}>
-                <IconDashboard />
-                <span>Inicio</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+          <SidebarMenuItem key="Inicio">
+            <SidebarMenuButton
+              tooltip="Inicio"
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "transition-all duration-300 hover:scale-105 hover:cursor-pointer hover:bg-blue-500 hover:text-white",
+                isActive
+                  ? "bg-blue-500/80 text-white"
+                  : "hover:bg-blue-500 hover:text-white"
+              )}
+              onClick={() => setEntity("Inicio")}
+            >
+              <IconHome />
+              <span>Inicio</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
-  )
+  );
 }

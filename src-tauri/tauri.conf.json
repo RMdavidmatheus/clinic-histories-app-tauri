@@ -58,8 +58,10 @@
         "fullscreen": false,
         "height": 720,
         "resizable": true,
+        "minHeight": 720,
+        "minWidth": 1366,
         "title": "Historias clinicas",
-        "width": 1280
+        "width": 1366
       }
     ]
   }

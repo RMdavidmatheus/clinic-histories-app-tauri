@@ -2,18 +2,15 @@
 
 import * as React from "react"
 import {
-  IconChartBar,
-  IconDashboard,
   IconDatabase,
-  IconFileWord,
-  IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
-  IconListDetails,
-  IconReport,
-  IconSearch,
-  IconSettings,
+  IconHeartCog,
   IconUsers,
+  IconPillFilled,
+  IconCalendarDollar,
+  IconReportAnalytics,
+  IconUserCog,
+  IconCalendar,
+  IconHome
 } from "@tabler/icons-react"
 
 import { NavReports } from "@/components/nav/nav-reports"
@@ -30,6 +27,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { NavApplication } from "./nav-application"
+import Image from "next/image"
 
 const data = {
   user: {
@@ -39,57 +37,56 @@ const data = {
   },
   navApplication: [
     {
-      title: "Dashboard",
-      icon: IconDashboard,
+      title: "Inicio",
+      icon: IconHome,
     },
   ],
   navEntities: [
     {
-      title: "Lifecycle",
-      icon: IconListDetails,
-    },
-    {
-      title: "Analytics",
-      icon: IconChartBar,
-    },
-    {
-      title: "Projects",
-      icon: IconFolder,
-    },
-    {
-      title: "Team",
+      title: "Pacientes",
       icon: IconUsers,
+    },
+    {
+      title: "Historias clínicas",
+      icon: IconHeartCog,
+    },
+    {
+      title: "Medicamentos",
+      icon: IconPillFilled,
+    },
+    {
+      title: "Códigos diagnósticos",
+      icon: IconDatabase,
+    },
+    {
+      title: "Códigos cups",
+      icon: IconDatabase,
     },
   ],
   navBottom: [
     {
-      title: "Settings",
-      icon: IconSettings,
+      title: "Programar citas",
+      icon: IconCalendar,
+      visible: true,
     },
     {
-      title: "Get Help",
-      icon: IconHelp,
-    },
-    {
-      title: "Search",
-      icon: IconSearch,
+      title: "Panel administrador",
+      icon: IconUserCog,
+      visible: false,
     },
   ],
   navReports: [
     {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
+      name: "Metrica de consultas",
+      icon: IconReportAnalytics,
     },
     {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
+      name: "Metrica de pacientes",
+      icon: IconReportAnalytics,
     },
     {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
+      name: "Metrica de ganancias",
+      icon: IconCalendarDollar,
     },
   ],
 }
@@ -102,11 +99,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="data-[slot=sidebar-menu-button]:!p-1.5 hover:cursor-pointer transition-all duration-300 hover:scale-105 hover:rotate-1 h-auto"
             >
-              <a href="#">
-                <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+              <a href="/content">
+                <Image src="/images/ico.png" alt="logo" width={50} height={50} className="rounded-lg" />
+                <div className="flex flex-col">
+                  <span className="text-xl font-bold">Historias clínicas</span>
+                  <span className="text-md text-neutral-600 font-light">versión 0.1.0</span>
+                </div>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
