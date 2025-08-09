@@ -485,7 +485,7 @@ export default function PatientsTable() {
           {/* Column visibility */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="cursor-pointer">
                 <Columns className="mr-2 h-4 w-4" /> Columnas
               </Button>
             </DropdownMenuTrigger>
@@ -498,7 +498,7 @@ export default function PatientsTable() {
                 .map((column) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="capitalize"
+                    className="capitalize cursor-pointer"
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) =>
                       column.toggleVisibility(!!value)
