@@ -7,6 +7,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import DashboardComponent from "@/components/dashboard/dashboard-component";
 import { useEntityStore } from "@/lib/application-utils";
 import { AnimatePresence, motion } from "framer-motion";
+import PatientsComponent from "@/components/patients/patients-component";
+import ClinicHistoriesComponent from "@/components/clinic-histories/clinic-histories-component";
 
 export default function Page() {
   const entity = useEntityStore((s) => s.entity);
@@ -36,6 +38,10 @@ export default function Page() {
               >
                 {entity === "Inicio" ? (
                   <DashboardComponent />
+                ) : entity === "Pacientes" ? (
+                  <PatientsComponent />
+                ) : entity === "Historias clínicas" ? (
+                  <ClinicHistoriesComponent />
                 ) : (
                   <div>No hay contenido</div>
                 )}
