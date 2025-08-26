@@ -68,9 +68,20 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { IconFileSpreadsheet, IconFileTypePdf } from "@tabler/icons-react";
 import ModalAddPatients from "./modal-add-patients";
-import { useEffect, useState } from "react";
-import { CalculateAge, FetchPatientsData } from "@/lib/application-utils";
+import { useState } from "react";
+import {
+  CalculateAge,
+  createFetchFunction,
+  useContinuousFetch,
+} from "@/lib/application-utils";
 import { Patient as PatientModel } from "@/models/patients/patient-model";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
+import { API_CONFIG } from "@/config/api";
 
 // -----------------------------
 // Columns
@@ -132,9 +143,6 @@ const columns: ColumnDef<PatientModel>[] = [
   {
     accessorKey: "document_number",
     header: "Documento",
-    cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.document_number}</span>
-    ),
   },
   {
     accessorKey: "age",
@@ -164,16 +172,14 @@ const columns: ColumnDef<PatientModel>[] = [
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 cursor-pointer"
               aria-label="Acciones fila"
             >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>
-              Acciones
-            </DropdownMenuLabel>
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem
               onClick={() => alert(`Ver paciente ${p.id}`)}
               className="cursor-pointer"
@@ -185,13 +191,6 @@ const columns: ColumnDef<PatientModel>[] = [
               className="cursor-pointer"
             >
               <Edit className="mr-2 h-4 w-4" /> Editar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive cursor-pointer"
-              onClick={() => alert(`Eliminar paciente ${p.id}`)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -207,8 +206,12 @@ const columns: ColumnDef<PatientModel>[] = [
 // Component
 // -----------------------------
 
+// Crear la función de fetch fuera del componente para evitar re-creaciones
+const fetchPatientsData = createFetchFunction<PatientModel[]>(
+  API_CONFIG.ENDPOINTS.PATIENTS
+);
+
 export default function PatientsTable() {
-  const [patients, setPatients] = useState<PatientModel[] | null>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
@@ -222,13 +225,20 @@ export default function PatientsTable() {
     pageSize,
   });
 
-  useEffect(() => {
-    const fetchPatients = async () => {
-      const response = await FetchPatientsData();
-      if (response) setPatients(response);
-    };
-    fetchPatients();
-  }, []);
+  // Hook para fetch continuo con performance optimizada
+  const {
+    data: patients,
+    loading,
+    error,
+    refresh,
+    togglePolling,
+    isPolling,
+    retryCount,
+  } = useContinuousFetch<PatientModel[]>(
+    fetchPatientsData,
+    API_CONFIG.DEFAULT_POLLING_INTERVAL,
+    true // habilitado por defecto
+  );
 
   const table = useReactTable({
     data: patients || [],
@@ -361,7 +371,7 @@ export default function PatientsTable() {
           cellPadding: 6,
           lineColor: [58, 127, 240],
           lineWidth: 0.5,
-          halign: 'center',
+          halign: "center",
         },
         headStyles: {
           fillColor: [58, 127, 240],
@@ -412,283 +422,376 @@ export default function PatientsTable() {
   }, [pageCount, pageIndex]);
 
   return (
-    <Card className="w-full h-full flex flex-col">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-3xl font-bold">
-              Listado de pacientes
-            </CardTitle>
-            <CardDescription>
-              En el siguiente modulo se puede ver el listado de pacientes, aqui
-              podrás agregar, editar y eliminar pacientes.
-            </CardDescription>
+    <TooltipProvider>
+      <Card className="w-full h-full flex flex-col">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-3xl font-bold">
+                Listado de pacientes
+              </CardTitle>
+              <CardDescription>
+                En el siguiente modulo se puede ver el listado de pacientes,
+                aqui podrás agregar, editar y eliminar pacientes.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Controles de polling continuo - Movidos aquí */}
+              <div className="flex items-center gap-2 mr-2">
+                <div
+                  className={`w-2 h-2 rounded-full mr-1 ${
+                    isPolling ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                  }`}
+                ></div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={togglePolling}
+                      className="text-xs px-2 py-1 h-auto cursor-pointer"
+                    >
+                      {isPolling ? "⏸️" : "▶️"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isPolling
+                      ? "Pausar sincronización automática"
+                      : "Reanudar sincronización automática"}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refresh}
+                      disabled={loading}
+                      className="text-xs px-2 py-1 h-auto cursor-pointer"
+                    >
+                      🔄
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {loading
+                      ? "Actualizando datos..."
+                      : "Actualizar datos manualmente"}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              {/* Dropdown Exportar */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="cursor-pointer"
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={exportExcel}
+                    className="cursor-pointer h-auto"
+                  >
+                    <IconFileSpreadsheet className="mr-2 h-5 w-5 text-green-700" />{" "}
+                    Excel (.xlsx)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={exportPDF}
+                    className="cursor-pointer h-auto"
+                  >
+                    <IconFileTypePdf className="mr-2 h-5 w-5 text-red-700" />{" "}
+                    PDF (.pdf)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Eliminar masiva: aparece si hay >=1 seleccionados */}
+              {selectedIds.length >= 1 && (
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key="delete-button"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      onClick={() => {
+                        alert(
+                          `Eliminar (temporal): [${selectedIds.join(", ")}]`
+                        );
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Eliminar seleccionados
+                    </Button>
+                  </motion.div>
+                </AnimatePresence>
+              )}
+
+              {/* Agregar/Editar paciente */}
+              <ModalAddPatients />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Dropdown Exportar */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {/* Indicador de error */}
+            {error && (
+              <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-2 rounded-lg border border-red-200 w-full mb-2">
+                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                <span>Error: {error}</span>
+                {retryCount > 0 && (
+                  <span className="text-xs text-gray-500">
+                    (Reintento {retryCount}/3)
+                  </span>
+                )}
+              </div>
+            )}
+
+            <Input
+              placeholder="Buscar por nombre, apellido o documento..."
+              className="max-w-sm"
+              onChange={(e) => search(e.target.value)}
+            />
+
+            {/* Column visibility */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="cursor-pointer">
-                  <Download className="mr-2 h-4 w-4" /> Exportar
+                  <Columns className="mr-2 h-4 w-4" /> Columnas
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={exportExcel}
-                  className="cursor-pointer h-auto"
-                >
-                  <IconFileSpreadsheet className="mr-2 h-5 w-5 text-green-700" />{" "}
-                  Excel (.xlsx)
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={exportPDF}
-                  className="cursor-pointer h-auto"
-                >
-                  <IconFileTypePdf className="mr-2 h-5 w-5 text-red-700" /> PDF
-                  (.pdf)
-                </DropdownMenuItem>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>Mostrar/Ocultar</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table
+                  .getAllLeafColumns()
+                  .filter((c) => c.getCanHide() && c.id !== "q")
+                  .filter((c) => c.getCanHide() && c.id !== "id")
+                  .map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="cursor-pointer"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id === "document_type"
+                        ? "Tipo de documento"
+                        : column.id === "document_number"
+                        ? "Documento"
+                        : column.id === "age"
+                        ? "Edad"
+                        : column.id === "gender"
+                        ? "Género"
+                        : column.id === "email"
+                        ? "Email"
+                        : column.id === "phone"
+                        ? "Teléfono"
+                        : column.id === "full_name"
+                        ? "Nombres"
+                        : column.id}
+                    </DropdownMenuCheckboxItem>
+                  ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Eliminar masiva: aparece si hay >=1 seleccionados */}
-            {selectedIds.length >= 1 && (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key="delete-button"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Button
-                    variant="destructive"
-                    size="lg"
-                    onClick={() => {
-                      alert(`Eliminar (temporal): [${selectedIds.join(", ")}]`);
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar seleccionados
-                  </Button>
-                </motion.div>
-              </AnimatePresence>
-            )}
-
-            {/* Agregar/Editar paciente */}
-            <ModalAddPatients />
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Input
-            placeholder="Buscar por nombre, apellido o documento..."
-            className="max-w-sm"
-            onChange={(e) => search(e.target.value)}
-          />
-
-          {/* Column visibility */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="cursor-pointer">
-                <Columns className="mr-2 h-4 w-4" /> Columnas
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>Mostrar/Ocultar</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table
-                .getAllLeafColumns()
-                .filter((c) => c.getCanHide() && c.id !== "q")
-                .filter((c) => c.getCanHide() && c.id !== "id")
-                .map((column) => (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="cursor-pointer"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id === "document_type"
-                      ? "Tipo de documento"
-                      : column.id === "document_number"
-                      ? "Documento"
-                      : column.id === "age"
-                      ? "Edad"
-                      : column.id === "gender"
-                      ? "Género"
-                      : column.id === "email"
-                      ? "Email"
-                      : column.id === "phone"
-                      ? "Teléfono"
-                      : column.id === "full_name"
-                      ? "Nombres"
-                      : column.id}
-                  </DropdownMenuCheckboxItem>
-                ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Page size selector */}
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Registros por página
-            </span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(v) => {
-                const size = Number(v);
-                setPageSize(size);
-                table.setPageSize(size);
-                setPagination((p) => ({ ...p, pageSize: size, pageIndex: 0 }));
-              }}
-            >
-              <SelectTrigger className="h-8 w-[100px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[100, 150, 200, 250, 300].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 flex flex-col min-h-0">
-        <div className="rounded-md border flex-1 min-h-0 overflow-auto overflow-x-auto max-h-[650px]">
-          <Table className="min-w-[900px]">
-            <TableHeader className="sticky top-0 z-20 bg-background">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      style={{ width: header.getSize() }}
-                      className="bg-background sticky top-0 z-20 text-center font-bold text-md"
-                    >
-                      {header.isPlaceholder ? null : (
-                        <div
-                          className={
-                            header.column.getCanSort()
-                              ? "cursor-pointer select-none"
-                              : undefined
-                          }
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                          {({ asc: " ⬆", desc: " ⬇" } as const)[
-                            header.column.getIsSorted() as string
-                          ] ?? null}
-                        </div>
-                      )}
-                    </TableHead>
+            {/* Page size selector */}
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Registros por página
+              </span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  const size = Number(v);
+                  setPageSize(size);
+                  table.setPageSize(size);
+                  setPagination((p) => ({
+                    ...p,
+                    pageSize: size,
+                    pageIndex: 0,
+                  }));
+                }}
+              >
+                <SelectTrigger className="h-8 w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[100, 150, 200, 250, 300].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
                   ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-center">
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 flex flex-col min-h-0">
+          <div className="rounded-md border flex-1 min-h-0 overflow-auto overflow-x-auto max-h-[650px]">
+            <Table className="min-w-[900px]">
+              <TableHeader className="sticky top-0 z-20 bg-background">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        style={{ width: header.getSize() }}
+                        className="bg-background sticky top-0 z-20 text-center font-bold text-md"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <div
+                            className={
+                              header.column.getCanSort()
+                                ? "cursor-pointer select-none"
+                                : undefined
+                            }
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {({ asc: " ⬆", desc: " ⬇" } as const)[
+                              header.column.getIsSorted() as string
+                            ] ?? null}
+                          </div>
                         )}
-                      </TableCell>
+                      </TableHead>
                     ))}
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    No hay resultados
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Footer: selection info + pagination */}
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start">
-          <div className="text-sm text-muted-foreground">
-            {selectedIds.length === 0
-              ? "Ningún registro seleccionado"
-              : selectedIds.length === 1
-              ? `Seleccionado ID: ${selectedIds[0]}`
-              : `${selectedIds.length} registros seleccionados`}
+                ))}
+              </TableHeader>
+              <TableBody>
+                {loading && (!patients || patients.length === 0) ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>Cargando datos...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className={loading ? "opacity-70" : ""}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="text-center">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      No hay resultados
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
 
-          <Pagination className="flex justify-center w-full mr-50">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  aria-label="Anterior"
-                  className={
-                    table.getCanPreviousPage()
-                      ? "cursor-pointer"
-                      : "cursor-not-allowed opacity-50"
-                  }
-                  onClick={() => {
-                    if (table.getCanPreviousPage()) table.previousPage();
-                  }}
-                >
-                  Anterior
-                </PaginationPrevious>
-              </PaginationItem>
+          {/* Footer: selection info + polling status + pagination */}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="text-sm text-muted-foreground">
+                {selectedIds.length === 0
+                  ? "Ningún registro seleccionado"
+                  : selectedIds.length === 1
+                  ? `Seleccionado ID: ${selectedIds[0]}`
+                  : `${selectedIds.length} registros seleccionados`}
+              </div>
+              {patients && (
+                <div className="text-xs text-muted-foreground">
+                  • {patients.length} pacientes total
+                  {patients.length !== 1 ? "es" : ""}
+                </div>
+              )}
+            </div>
 
-              {pageNumbers.map((p, idx) => (
-                <PaginationItem key={`${p}-${idx}`} className="cursor-pointer">
-                  {p === "ellipsis" ? (
-                    <PaginationEllipsis className="cursor-pointer" />
-                  ) : (
-                    <PaginationLink
-                      className={`cursor-pointer hover:bg-neutral-200 transition-all duration-300 ${
-                        p === pageIndex
-                          ? "bg-blue-500 text-white transition-all duration-300 hover:bg-blue-400 hover:text-white"
-                          : ""
-                      }`}
-                      isActive={p === pageIndex}
-                      onClick={() => goTo(p)}
-                    >
-                      {p + 1}
-                    </PaginationLink>
-                  )}
+            <Pagination className="flex justify-center w-full mr-50">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    aria-label="Anterior"
+                    className={
+                      table.getCanPreviousPage()
+                        ? "cursor-pointer"
+                        : "cursor-not-allowed opacity-50"
+                    }
+                    onClick={() => {
+                      if (table.getCanPreviousPage()) table.previousPage();
+                    }}
+                  >
+                    Anterior
+                  </PaginationPrevious>
                 </PaginationItem>
-              ))}
 
-              <PaginationItem>
-                <PaginationNext
-                  aria-label="Siguiente"
-                  className={
-                    table.getCanNextPage()
-                      ? "cursor-pointer"
-                      : "cursor-not-allowed opacity-50"
-                  }
-                  onClick={() => {
-                    if (table.getCanNextPage()) table.nextPage();
-                  }}
-                >
-                  Siguiente
-                </PaginationNext>
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      </CardContent>
-    </Card>
+                {pageNumbers.map((p, idx) => (
+                  <PaginationItem
+                    key={`${p}-${idx}`}
+                    className="cursor-pointer"
+                  >
+                    {p === "ellipsis" ? (
+                      <PaginationEllipsis className="cursor-pointer" />
+                    ) : (
+                      <PaginationLink
+                        className={`cursor-pointer hover:bg-neutral-200 transition-all duration-300 ${
+                          p === pageIndex
+                            ? "bg-blue-500 text-white transition-all duration-300 hover:bg-blue-400 hover:text-white"
+                            : ""
+                        }`}
+                        isActive={p === pageIndex}
+                        onClick={() => goTo(p)}
+                      >
+                        {p + 1}
+                      </PaginationLink>
+                    )}
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    aria-label="Siguiente"
+                    className={
+                      table.getCanNextPage()
+                        ? "cursor-pointer"
+                        : "cursor-not-allowed opacity-50"
+                    }
+                    onClick={() => {
+                      if (table.getCanNextPage()) table.nextPage();
+                    }}
+                  >
+                    Siguiente
+                  </PaginationNext>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 }

@@ -51,8 +51,8 @@ export default function ModalAddClinicHistories() {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh] sm:max-h-none flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-2xl font-bold">Agregar historia clínica</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             Completa la información de la historia clínica y guarda los cambios.
@@ -60,7 +60,8 @@ export default function ModalAddClinicHistories() {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2 -mr-2">
 
             <FormField
               control={form.control}
@@ -71,7 +72,6 @@ export default function ModalAddClinicHistories() {
                   <FormControl>
                     <Input placeholder="Juan Pérez" {...field} />
                   </FormControl>
-                  <FormDescription>El nombre completo de la historia clínica.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -119,7 +119,9 @@ export default function ModalAddClinicHistories() {
               )}
             />
 
-            <DialogFooter className="flex gap-2 justify-end">
+            </div>
+
+            <DialogFooter className="flex gap-2 justify-end shrink-0 mt-4 pt-4 border-t">
               <DialogClose asChild>
                 <Button type="button" variant="outline" className="cursor-pointer">Cancelar</Button>
               </DialogClose>
