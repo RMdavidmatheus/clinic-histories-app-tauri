@@ -67,16 +67,50 @@ import {
 } from "@/components/ui/select";
 import { AnimatePresence, motion } from "framer-motion";
 import { IconFileSpreadsheet, IconFileTypePdf } from "@tabler/icons-react";
-import ModalAddPatients from "./modal-add-patients";
-import { useEffect, useState } from "react";
-import { CalculateAge, FetchPatientsData } from "@/lib/application-utils";
-import { Patient as PatientModel } from "@/models/patients/patient-model";
+import ModalAddClinicHistories from "./modal-add-clinic-histories";
+
+// -----------------------------
+// Types & Fake Data
+// -----------------------------
+
+type Patient = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  document: string;
+  age: number;
+  phone: string;
+  createdAt: string; // ISO date
+};
+
+const FAKE_PATIENTS: Patient[] = Array.from({ length: 500 }).map((_, i) => ({
+  id: `${1000 + i}`,
+  firstName: [
+    "Juan",
+    "María",
+    "Carlos",
+    "Luisa",
+    "Ana",
+    "Pedro",
+    "Sofía",
+    "Miguel",
+  ][i % 8],
+  lastName: ["García", "Rodríguez", "Pérez", "López", "Hernández", "Martínez"][
+    i % 6
+  ],
+  document: `${Math.floor(10000000 + Math.random() * 80000000)}`,
+  age: 18 + (i % 60),
+  phone: `+57 3${Math.floor(10 + (i % 9))}${Math.floor(
+    10000000 + Math.random() * 89999999
+  )}`.slice(0, 13),
+  createdAt: new Date(Date.now() - i * 86_400_000).toISOString(),
+}));
 
 // -----------------------------
 // Columns
 // -----------------------------
 
-const columns: ColumnDef<PatientModel>[] = [
+const columns: ColumnDef<Patient>[] = [
   // Selection column
   {
     id: "select",
@@ -102,11 +136,9 @@ const columns: ColumnDef<PatientModel>[] = [
     enableHiding: false,
     size: 40,
   },
-  // Hidden full-text column for global search
   {
     id: "q",
-    accessorFn: (r) =>
-      `${r.full_name} ${r.document_number} ${r.email} ${r.document_type}`,
+    accessorFn: (r) => `${r.firstName} ${r.lastName} ${r.document}`,
     header: "",
     cell: () => null,
     enableHiding: true,
@@ -118,40 +150,35 @@ const columns: ColumnDef<PatientModel>[] = [
     cell: ({ row }) => (
       <div className="font-mono text-xs">{row.original.id}</div>
     ),
-    enableHiding: true,
-    size: 60,
   },
   {
-    accessorKey: "full_name",
-    header: "Nombres",
+    accessorKey: "firstName",
+    header: "Nombre",
   },
   {
-    accessorKey: "document_type",
-    header: "Tipo de documento",
+    accessorKey: "lastName",
+    header: "Apellido",
   },
   {
-    accessorKey: "document_number",
+    accessorKey: "document",
     header: "Documento",
     cell: ({ row }) => (
-      <span className="tabular-nums">{row.original.document_number}</span>
+      <span className="tabular-nums">{row.original.document}</span>
     ),
   },
   {
     accessorKey: "age",
     header: "Edad",
-    cell: ({ row }) => CalculateAge(row.original.birth_date),
-  },
-  {
-    accessorKey: "gender",
-    header: "Género",
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
   },
   {
     accessorKey: "phone",
     header: "Teléfono",
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Creado",
+    cell: ({ row }) =>
+      new Date(row.original.createdAt).toLocaleDateString("es-CO"),
   },
   // Row actions
   {
@@ -171,24 +198,16 @@ const columns: ColumnDef<PatientModel>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>
-              Acciones
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => alert(`Ver paciente ${p.id}`)}
-              className="cursor-pointer"
-            >
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => alert(`Ver paciente ${p.id}`)}>
               <Eye className="mr-2 h-4 w-4" /> Ver
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => alert(`Editar paciente ${p.id}`)}
-              className="cursor-pointer"
-            >
+            <DropdownMenuItem onClick={() => alert(`Editar paciente ${p.id}`)}>
               <Edit className="mr-2 h-4 w-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="text-destructive cursor-pointer"
+              className="text-destructive"
               onClick={() => alert(`Eliminar paciente ${p.id}`)}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Eliminar
@@ -207,31 +226,22 @@ const columns: ColumnDef<PatientModel>[] = [
 // Component
 // -----------------------------
 
-export default function PatientsTable() {
-  const [patients, setPatients] = useState<PatientModel[] | null>([]);
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    q: false,
-    id: false,
-  });
-  const [rowSelection, setRowSelection] = useState({});
-  const [pageSize, setPageSize] = useState<number>(100);
-  const [pagination, setPagination] = useState({
+export default function DataTableClinicHistories() {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({ q: false });
+  const [rowSelection, setRowSelection] = React.useState({});
+  const [pageSize, setPageSize] = React.useState<number>(100);
+  const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize,
   });
 
-  useEffect(() => {
-    const fetchPatients = async () => {
-      const response = await FetchPatientsData();
-      if (response) setPatients(response);
-    };
-    fetchPatients();
-  }, []);
-
   const table = useReactTable({
-    data: patients || [],
+    data: FAKE_PATIENTS,
     columns,
     state: {
       sorting,
@@ -264,6 +274,15 @@ export default function PatientsTable() {
     console.log("IDs seleccionados:", ids);
   }, [rowSelection, table]);
 
+  // Add/Edit button label & handler usando selectedIds
+  const onPrimaryAction = () => {
+    if (selectedIds.length === 1) {
+      alert(`Editar paciente con id: ${selectedIds[0]}`);
+    } else {
+      alert("Agregar paciente");
+    }
+  };
+
   // Utilities para exportaciones
   const urlToDataURL = async (url: string) => {
     const res = await fetch(url);
@@ -280,19 +299,11 @@ export default function PatientsTable() {
   const exportExcel = async () => {
     try {
       const xlsx = await import("xlsx");
-      const rows = table.getFilteredRowModel().rows.map((r) => ({
-        full_name: r.original.full_name,
-        document_type: r.original.document_type,
-        document_number: r.original.document_number,
-        age: CalculateAge(r.original.birth_date),
-        gender: r.original.gender,
-        email: r.original.email,
-        phone: r.original.phone,
-      }));
+      const rows = table.getFilteredRowModel().rows.map((r) => r.original);
       const ws = xlsx.utils.json_to_sheet(rows);
       const wb = xlsx.utils.book_new();
       xlsx.utils.book_append_sheet(wb, ws, "Pacientes");
-      xlsx.writeFile(wb, `listado-pacientes-${new Date()}.xlsx`);
+      xlsx.writeFile(wb, "pacientes.xlsx");
     } catch (e) {
       console.error(e);
       alert("Para exportar a Excel instala la dependencia: npm i xlsx");
@@ -324,7 +335,7 @@ export default function PatientsTable() {
       doc.setTextColor(255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
-      doc.text("Listado de Pacientes", MARGIN_X + 60, 36);
+      doc.text("Listado de historias clínicas", MARGIN_X + 60, 36);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
@@ -333,23 +344,15 @@ export default function PatientsTable() {
         54
       );
 
-      const rows = table.getFilteredRowModel().rows.map((r) => ({
-        full_name: r.original.full_name,
-        document_type: r.original.document_type,
-        document_number: r.original.document_number,
-        age: CalculateAge(r.original.birth_date),
-        gender: r.original.gender,
-        email: r.original.email,
-        phone: r.original.phone,
-      }));
+      const rows = table.getFilteredRowModel().rows.map((r) => r.original);
       const cols = [
-        { header: "Nombres", dataKey: "full_name" },
-        { header: "Tipo de documento", dataKey: "document_type" },
-        { header: "Documento", dataKey: "document_number" },
+        { header: "ID", dataKey: "id" },
+        { header: "Nombre", dataKey: "firstName" },
+        { header: "Apellido", dataKey: "lastName" },
+        { header: "Documento", dataKey: "document" },
         { header: "Edad", dataKey: "age" },
-        { header: "Género", dataKey: "gender" },
-        { header: "Email", dataKey: "email" },
         { header: "Teléfono", dataKey: "phone" },
+        { header: "Creado", dataKey: "createdAt" },
       ];
 
       autoTable(doc, {
@@ -361,7 +364,6 @@ export default function PatientsTable() {
           cellPadding: 6,
           lineColor: [58, 127, 240],
           lineWidth: 0.5,
-          halign: 'center',
         },
         headStyles: {
           fillColor: [58, 127, 240],
@@ -380,7 +382,11 @@ export default function PatientsTable() {
         },
       });
 
-      doc.save(`listado-pacientes-${new Date()}.pdf`);
+      doc.save(
+        `listado-historias-clinicas-${new Date().toLocaleDateString(
+          "es-CO"
+        )}.pdf`
+      );
     } catch (e) {
       console.error(e);
       alert("Para exportar a PDF instala: npm i jspdf jspdf-autotable");
@@ -395,7 +401,7 @@ export default function PatientsTable() {
   const pageNumbers = React.useMemo(() => {
     const total = pageCount;
     const current = pageIndex;
-    const window = 2; // neighbors
+    const window = 2;
     const pages: (number | "ellipsis")[] = [];
     for (let i = 0; i < total; i++) {
       if (
@@ -417,11 +423,12 @@ export default function PatientsTable() {
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle className="text-3xl font-bold">
-              Listado de pacientes
+              Listado de historias clínicas
             </CardTitle>
             <CardDescription>
-              En el siguiente modulo se puede ver el listado de pacientes, aqui
-              podrás agregar, editar y eliminar pacientes.
+              En el siguiente modulo se puede ver el listado de historias
+              clínicas, aqui podrás agregar, editar y eliminar historias
+              clínicas.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -474,7 +481,7 @@ export default function PatientsTable() {
             )}
 
             {/* Agregar/Editar paciente */}
-            <ModalAddPatients />
+            <ModalAddClinicHistories />
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -497,31 +504,16 @@ export default function PatientsTable() {
               {table
                 .getAllLeafColumns()
                 .filter((c) => c.getCanHide() && c.id !== "q")
-                .filter((c) => c.getCanHide() && c.id !== "id")
                 .map((column) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="cursor-pointer"
+                    className="capitalize cursor-pointer"
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) =>
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {column.id === "document_type"
-                      ? "Tipo de documento"
-                      : column.id === "document_number"
-                      ? "Documento"
-                      : column.id === "age"
-                      ? "Edad"
-                      : column.id === "gender"
-                      ? "Género"
-                      : column.id === "email"
-                      ? "Email"
-                      : column.id === "phone"
-                      ? "Teléfono"
-                      : column.id === "full_name"
-                      ? "Nombres"
-                      : column.id}
+                    {column.id}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
@@ -566,7 +558,7 @@ export default function PatientsTable() {
                     <TableHead
                       key={header.id}
                       style={{ width: header.getSize() }}
-                      className="bg-background sticky top-0 z-20 text-center font-bold text-md"
+                      className="bg-background sticky top-0 z-20"
                     >
                       {header.isPlaceholder ? null : (
                         <div
@@ -599,7 +591,7 @@ export default function PatientsTable() {
                     data-state={row.getIsSelected() && "selected"}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="text-center">
+                      <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -651,9 +643,9 @@ export default function PatientsTable() {
               </PaginationItem>
 
               {pageNumbers.map((p, idx) => (
-                <PaginationItem key={`${p}-${idx}`} className="cursor-pointer">
+                <PaginationItem key={`${p}-${idx}`}>
                   {p === "ellipsis" ? (
-                    <PaginationEllipsis className="cursor-pointer" />
+                    <PaginationEllipsis />
                   ) : (
                     <PaginationLink
                       className={`cursor-pointer hover:bg-neutral-200 transition-all duration-300 ${

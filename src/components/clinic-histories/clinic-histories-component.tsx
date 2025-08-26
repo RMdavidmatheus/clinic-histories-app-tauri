@@ -1,7 +1,9 @@
+import DataTableClinicHistories from "./data-table-clinic-histories";
+
 export default function ClinicHistoriesComponent() {
     return (
-        <div>
-            <h1>Clinic Histories</h1>
-        </div>
+        <section className="flex flex-col p-5 h-full">
+            <DataTableClinicHistories />
+        </section>
     )
 }
