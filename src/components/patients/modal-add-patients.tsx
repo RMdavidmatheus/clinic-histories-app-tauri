@@ -11,7 +11,7 @@ import {
   DialogContent,
   DialogClose,
 } from "../ui/dialog";
-import { CalendarIcon, Plus } from "lucide-react";
+import { AlertCircle, CalendarIcon, CheckCircle, Plus } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -38,6 +38,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { PatientBody } from "@/models/patients/patient-model";
+import { createPostFunction } from "@/lib/application-utils";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido" }),
@@ -75,6 +78,22 @@ export default function ModalAddPatients() {
       value: "TI",
     },
   ];
+
+  const genders = [
+    {
+      label: "Masculino",
+      value: "Masculino",
+    },
+    {
+      label: "Femenino",
+      value: "Femenino",
+    },
+    {
+      label: "Otro",
+      value: "Otro",
+    },
+  ];
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -89,8 +108,42 @@ export default function ModalAddPatients() {
     mode: "onChange",
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Convertir la fecha a string formato yyyy-mm-dd
+  function splitFullName(fullName: string) {
+    const nameParts = fullName
+      .trim()
+      .split(" ")
+      .filter((part) => part.length > 0);
+
+    let first_name = "";
+    let second_name: string | undefined = undefined;
+    let first_last_name = "";
+    let second_last_name: string | undefined = undefined;
+
+    if (nameParts.length === 2) {
+      first_name = nameParts[0];
+      first_last_name = nameParts[1];
+    } else if (nameParts.length === 3) {
+      first_name = nameParts[0];
+      second_name = nameParts[1];
+      first_last_name = nameParts[2];
+    } else if (nameParts.length >= 4) {
+      first_name = nameParts[0];
+      second_name = nameParts[1];
+      first_last_name = nameParts[2];
+      second_last_name = nameParts[3];
+    } else if (nameParts.length === 1) {
+      first_name = nameParts[0];
+    }
+
+    return {
+      first_name,
+      second_name,
+      first_last_name,
+      second_last_name,
+    };
+  }
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     const formattedValues = {
       ...values,
       birth_date: values.birth_date
@@ -98,8 +151,37 @@ export default function ModalAddPatients() {
         : "",
     };
 
-    alert("Guardando paciente... ");
-    console.log("Valores formateados:", formattedValues);
+    const { first_name, second_name, first_last_name, second_last_name } =
+      splitFullName(formattedValues.fullName);
+
+    const body: PatientBody = {
+      first_name,
+      second_name,
+      first_last_name,
+      second_last_name,
+      document_type: formattedValues.document_type,
+      document_number: formattedValues.document,
+      birth_date: formattedValues.birth_date,
+      gender: formattedValues.gender,
+      email: formattedValues.email,
+      phone: formattedValues.phone,
+    };
+
+    const response = await createPostFunction<PatientBody>("/patients")(body);
+
+    if (!response) {
+      toast("Error", {
+        description:
+          "Por favor, asegúrese de haber ingresado todos los campos correctamente, de lo contrario contacte a soporte.",
+        icon: <AlertCircle className="h-4 w-4 text-amber-400" />,
+      });
+      return;
+    }
+
+    toast("Proceso exitoso", {
+      description: "El registro se ha creado correctamente.",
+      icon: <CheckCircle className="h-4 w-4 text-green-500" />,
+    });
 
     form.reset();
     form.clearErrors();
@@ -168,7 +250,7 @@ export default function ModalAddPatients() {
                 name="document_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Tipo de documento</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
@@ -196,23 +278,6 @@ export default function ModalAddPatients() {
 
               <FormField
                 control={form.control}
-                name="gender"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Género</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ingrese el género del paciente"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
                 name="document"
                 render={({ field }) => (
                   <FormItem>
@@ -223,6 +288,37 @@ export default function ModalAddPatients() {
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Género</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Seleccione un género" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Géneros</SelectLabel>
+                          {genders.map((gender) => (
+                            <SelectItem key={gender.value} value={gender.value}>
+                              {gender.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

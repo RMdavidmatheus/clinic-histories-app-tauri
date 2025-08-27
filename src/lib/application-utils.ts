@@ -238,3 +238,22 @@ export const createFetchFunction = <T>(endpoint: string) => {
     }
   };
 };
+
+// Funcion generica para crear un post
+export const createPostFunction = <T>(endpoint: string) => {
+  return async (body: T): Promise<T | null> => {
+    try {
+      const fullUrl = buildApiUrl(endpoint);
+      
+      const response = await axios.post<T>(fullUrl, body, {
+        timeout: API_CONFIG.TIMEOUT
+      });
+      
+      if (response.status !== 201) return null;
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching ${endpoint}:`, error);
+      return null;
+    }
+  };
+};

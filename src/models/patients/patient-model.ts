@@ -13,3 +13,16 @@ export interface Patient {
   deleted_at?: string;
   is_active: boolean;
 }
+
+export interface PatientBody {
+  document_type: string;
+  document_number: string;
+  first_name: string;
+  second_name: string | undefined;
+  first_last_name: string;
+  second_last_name: string | undefined;
+  birth_date: string;
+  gender: string;
+  email: string;
+  phone: string;
+}
